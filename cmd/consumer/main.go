@@ -1,9 +1,9 @@
 package main
 
 import (
+	"github.com/dianhadi/golib/log"
 	"github.com/dianhadi/search/internal/config"
 	handlerPost "github.com/dianhadi/search/internal/handler/consumer/post"
-	"github.com/dianhadi/search/pkg/log"
 	"github.com/dianhadi/search/pkg/mq"
 	"go.elastic.co/apm"
 )

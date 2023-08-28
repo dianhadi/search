@@ -3,7 +3,7 @@ module github.com/dianhadi/search
 go 1.20
 
 require (
-	github.com/rs/zerolog v1.30.0
+	github.com/dianhadi/golib v0.0.0-20230828032033-cf3af9c94083
 	github.com/streadway/amqp v1.1.0
 	go.elastic.co/apm v1.15.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -20,6 +20,7 @@ require (
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/procfs v0.0.0-20190425082905-87a4384529e0 // indirect
+	github.com/rs/zerolog v1.30.0 // indirect
 	github.com/santhosh-tekuri/jsonschema v1.2.4 // indirect
 	go.elastic.co/fastjson v1.1.0 // indirect
 	golang.org/x/lint v0.0.0-20201208152925-83fdc39ff7b5 // indirect
