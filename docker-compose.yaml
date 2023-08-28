@@ -1,0 +1,45 @@
+version: "3"
+services:
+  app-http:
+    container_name: http.search.golang.host
+    build: 
+      context: .
+      dockerfile: ./docker/http.Dockerfile
+    depends_on:
+      - rabbitmq
+    ports:
+      - "8009:8009"
+    networks:
+      - elastic_elastic
+    environment:
+      ELASTIC_APM_SERVER_URL: http://apm-server:8200
+      ELASTIC_APM_SERVICE_NAME: search-http-service
+    volumes:
+      - /Users/dianhadiana/Work/go/src/github.com/dianhadi/search/logs:/var/log
+  app-consumer:
+    container_name: consumer.search.golang.host
+    build: 
+      context: .
+      dockerfile: ./docker/consumer.Dockerfile
+    depends_on:
+      - rabbitmq
+    networks:
+      - elastic_elastic
+    environment:
+      ELASTIC_APM_SERVER_URL: http://apm-server:8200
+      ELASTIC_APM_SERVICE_NAME: search-consumer-service
+    volumes:
+      - /Users/dianhadiana/Work/go/src/github.com/dianhadi/search/logs:/var/log
+  rabbitmq:
+    image: "rabbitmq:3-management"
+    ports:
+      - "5672:5672"  # AMQP port
+      - "15672:15672"  # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: "admin"
+      RABBITMQ_DEFAULT_PASS: "admin"
+    networks:
+      - elastic_elastic
+networks:
+  elastic_elastic:
+    external: true
