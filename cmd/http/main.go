@@ -1,11 +1,23 @@
 package main
 
 import (
-	"fmt"
-	"log"
+	"context"
+	"errors"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/streadway/amqp"
+	"github.com/dianhadi/golib/log"
+	"github.com/dianhadi/search/internal/config"
+	"github.com/dianhadi/search/internal/handler/helper"
+	handlerPost "github.com/dianhadi/search/internal/handler/http/post"
+	repoPost "github.com/dianhadi/search/internal/repo/post"
+	usecasePost "github.com/dianhadi/search/internal/usecase/post"
+	"github.com/dianhadi/search/pkg/elastic"
+	"github.com/go-chi/chi"
+	"go.elastic.co/apm/module/apmchi"
 )
 
 const (
@@ -13,50 +25,87 @@ const (
 )
 
 func main() {
-	http.HandleFunc("/publish", publishHandler)
-	http.ListenAndServe(":8009", nil)
+	log.New(serviceName)
+
+	log.Info("Get Configuration")
+	appConfig, err := config.GetConfig("config/main.yaml")
+	if err != nil {
+		panic(err)
+	}
+
+	log.Info("Connect to Elastic")
+	elasticModule, err := elastic.New(appConfig.Elastic.Host, appConfig.Elastic.Port)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Info("Init Repo")
+	repoPost, err := repoPost.New(elasticModule)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Info("Init Usecase")
+	usecasePost, err := usecasePost.New(repoPost)
+	if err != nil {
+		panic(err)
+	}
+
+	log.Info("Init Handler")
+	handlerPost, err := handlerPost.New(usecasePost)
+	if err != nil {
+		panic(err)
+	}
+
+	r := chi.NewRouter()
+	r.Use(apmchi.Middleware())
+	r.Use(helper.Common)
+	r.Use(helper.Recover)
+
+	log.Info("Register Route")
+	r.Get("/v1/search", handlerPost.Search)
+
+	log.Infof("Starting server on port %s...", appConfig.Server.Port)
+	startServer(":"+appConfig.Server.Port, r)
 }
 
-func publishHandler(w http.ResponseWriter, r *http.Request) {
-	connectionString := "amqp://admin:admin@rabbitmq:5672"
-	conn, err := amqp.Dial(connectionString)
-	if err != nil {
-		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
+func startServer(port string, r http.Handler) {
+	srv := http.Server{
+		Addr:    port,
+		Handler: r,
 	}
-	defer conn.Close()
 
-	ch, err := conn.Channel()
-	if err != nil {
-		log.Fatalf("Failed to open a channel: %v", err)
-	}
-	defer ch.Close()
-
-	q, err := ch.QueueDeclare(
-		"post-created", // queue name
-		false,
-		false,
-		false,
-		false,
-		nil,
+	// Create a channel that listens on incomming interrupt signals
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(
+		signalChan,
+		syscall.SIGHUP,  // kill -SIGHUP XXXX
+		syscall.SIGINT,  // kill -SIGINT XXXX or Ctrl+c
+		syscall.SIGQUIT, // kill -SIGQUIT XXXX
 	)
-	if err != nil {
-		log.Fatalf("Failed to declare a queue: %v", err)
-	}
 
-	body := "Hello, RabbitMQ!"
-	err = ch.Publish(
-		"",
-		q.Name,
-		false,
-		false,
-		amqp.Publishing{
-			ContentType: "text/plain",
-			Body:        []byte(body),
-		},
-	)
-	if err != nil {
-		log.Fatalf("Failed to publish a message: %v", err)
-	}
+	// Graceful shutdown
+	go func() {
+		// Wait for a new signal on channel
+		<-signalChan
+		// Signal received, shutdown the server
+		log.Info("shutting down..")
 
-	fmt.Println("Message sent:", body)
+		// Create context with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		srv.Shutdown(ctx)
+
+		// Check if context timeouts, in worst case call cancel via defer
+		select {
+		case <-time.After(21 * time.Second):
+			log.Info("not all connections done")
+		case <-ctx.Done():
+		}
+	}()
+
+	err := srv.ListenAndServe()
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Fatal(err)
+	}
 }

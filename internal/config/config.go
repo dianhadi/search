@@ -9,6 +9,7 @@ import (
 type AppConfig struct {
 	Server   Server   `yaml:"server"`
 	Consumer Consumer `yaml:"consumer"`
+	Elastic  Elastic  `yaml:"elastic"`
 }
 
 type Server struct {
@@ -20,6 +21,11 @@ type Consumer struct {
 	Port     int    `yaml:"port"`
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
+}
+
+type Elastic struct {
+	Host string `yaml:"host"`
+	Port int    `yaml:"port"`
 }
 
 func GetConfig(file string) (AppConfig, error) {

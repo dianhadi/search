@@ -7,5 +7,5 @@ type Post struct {
 	Content        string `json:"content"`
 	PreviewContent string `json:"preview-content"`
 	PublishDate    string `json:"publish-date"`
-	AuthorID       string `json:"authot-id"`
+	AuthorID       string `json:"author-id"`
 }

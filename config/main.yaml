@@ -5,3 +5,6 @@ consumer:
   port: 5672
   username: "admin"
   password: "admin"
+elastic:
+  host: "elasticsearch"
+  port: 9200
